@@ -1,0 +1,6 @@
+#!/bin/bash
+# Gathering efficiency statistics for array jobs
+#
+#last modified 2023-12-01 (Hall)
+
+python /curc/sw/slurmtools/0.0.1/bin/seff-array.py $@
