@@ -8,7 +8,12 @@ This repository includes a collection of functions to assess recent usage statis
 
  'seff' (CPU and RAM efficiency for a specified job; contribued by [Slurm](https://github.com/SchedMD/slurm/blob/master/contribs/seff/seff) and originally developed by Princeton University RC)
 
+ 'seff-array' (a wrapper around 'seff-array.py')
+ 
+ 'seff-array.py' (Calculates CPU, memory, and runtime efficiency for job arrays)
+
  'jobstats' (job statistics for all jobs run by a specified user over N days)
 
  'levelfs' (current fair share priority for a specified user)
 
+ 'suacct_raw' (raw SU usage statistics for each user of a specified account over N days using 'sreport')
