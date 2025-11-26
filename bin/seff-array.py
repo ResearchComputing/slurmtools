@@ -68,7 +68,7 @@ def job_eff(job_id=0, cluster=os.getenv('SLURM_CLUSTER_NAME')):
     if len(df_long_finished) == 0:
         print(f"No jobs in {job_id} have completed.")
         return -1
-
+        
     # cleaning
     df_short = df_short.fillna(0.)
     df_long  = df_long.fillna(0.)
@@ -87,7 +87,7 @@ def job_eff(job_id=0, cluster=os.getenv('SLURM_CLUSTER_NAME')):
     else:
         job_id = df_short['JobID'][0].split('_')[0]
         array_job = True
-
+    
     job_name = df_short['JobName'][0]
     cluster = df_short['Cluster'][0]
     user = df_short['User'][0]
@@ -96,7 +96,7 @@ def job_eff(job_id=0, cluster=os.getenv('SLURM_CLUSTER_NAME')):
     cores = df_short['ReqCPUS'][0]
     req_mem = df_short['ReqMem'][0]
     req_time = df_short['Timelimit'][0]
-
+    
     print("--------------------------------------------------------")
     print("Job Information")
     print(f"ID: {job_id}")
@@ -107,21 +107,21 @@ def job_eff(job_id=0, cluster=os.getenv('SLURM_CLUSTER_NAME')):
     print(f"Requested Memory: {req_mem}")
     print(f"Requested Time: {req_time}")
     print("--------------------------------------------------------")
-
+    
     print("Job Status")
     states = np.unique(df_short['State'])
     for s in states:
         print(f"{s}: {len(df_short[df_short.State == s])}")
     print("--------------------------------------------------------")
-
+    
     # filter out pending and running jobs
     finished_state = ['COMPLETED', 'FAILED', 'OUT_OF_MEMORY', 'TIMEOUT', 'PREEMPTEED']
-    df_long_finished = df_long[df_long.State.isin(finished_state)]
+    df_long_finished = df_long[df_long.State.isin(finished_state)]    
 
     if len(df_long_finished) == 0:
         print(f"No jobs in {job_id} have completed.")
         return -1
-
+    
     cpu_use =  df_long_finished.TotalCPU.loc[df_long_finished.groupby('JobID')['TotalCPU'].idxmax()]
     time_use = df_long_finished.Elapsed.loc[df_long_finished.groupby('JobID')['Elapsed'].idxmax()]
     mem_use =  df_long_finished.MaxVMSize.loc[df_long_finished.groupby('JobID')['MaxVMSize'].idxmax()]
@@ -134,20 +134,20 @@ def job_eff(job_id=0, cluster=os.getenv('SLURM_CLUSTER_NAME')):
     print(f"Average Memory Usage {mem_use.mean():.2f}G")
     print(f"Average Run-time {time_use.mean():.2f}s")
     print("---------------------")
-
+    
     if array_job:
         print('\nCPU Efficiency (%)\n---------------------')
         fig = tpl.figure()
         h, bin_edges = np.histogram(cpu_eff*100, bins=np.linspace(0,100,num=11))
         fig.hist(h, bin_edges, orientation='horizontal')
         fig.show()
-
+        
         print('\nMemory Efficiency (%)\n---------------------')
         fig = tpl.figure()
         h, bin_edges = np.histogram(mem_use*100/float(req_mem[0:-1]), bins=np.linspace(0,100,num=11))
         fig.hist(h, bin_edges, orientation='horizontal')
         fig.show()
-
+        
         print('\nTime Efficiency (%)\n---------------------')
         fig = tpl.figure()
         h, bin_edges = np.histogram(time_use*100/time_to_float(req_time), bins=np.linspace(0,100,num=11))
