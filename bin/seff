@@ -11,12 +11,8 @@ use Sys::Hostname;
 use lib qw(/usr/lib64/perl5);
 use Slurmdb ':all';
 use Slurm ':all';
-#use Data::Dumper;
 
-my $VERSION = "2.1";
-
-# This script is roughtly equivalent to:
-# sacct -P -n -a --format JobID,User,Group,State,Cluster,AllocCPUS,REQMEM,TotalCPU,Elapsed,MaxRSS,ExitCode,NNodes,NTasks -j <job_id>
+my $VERSION = "2.2";
 
 my %opts;
 getopts('hvdf:',\%opts);
@@ -42,7 +38,6 @@ my $jobid_arg = $ARGV[0];
 my $db_conn = Slurmdb::connection_get();
 my $slurm = Slurm::new();
 
-# Get cluster name from SLurm config file.
 my $conf = $slurm->load_ctl_conf();
 my $clustername = $conf->{'cluster_name'};
 
@@ -53,14 +48,12 @@ $job_cond{step_list} = $jobid_arg;
 $job_cond{usage_start} = 0;
 $job_cond{usage_end} = 0;
 
-# Get and test for a single job.
 my $jobs = Slurmdb::jobs_get($db_conn, \%job_cond);
 if (scalar @$jobs < 1) {
     print STDERR "Job not found.\n";
     exit 2;
 }
 my $job = @$jobs[0];
-#print Dumper($job);
 
 my $jobid = $job->{'jobid'};
 my $user = $job->{'user'};
@@ -76,9 +69,8 @@ if (exists $job->{'alloc_cpus'}) {
         $ncpus = Slurmdb::find_tres_count_in_string($job->{'tres_alloc_str'}, TRES_CPU);
     }
 }
-# Check for missing number of cpus
 if (($ncpus == INFINITE64) || ($ncpus == 0)) {
-        $ncpus = 1;
+    $ncpus = 1;
 }
 
 my $nnodes = 1;
@@ -89,26 +81,23 @@ if (exists $job->{'alloc_nodes'}) {
         $nnodes = Slurmdb::find_tres_count_in_string($job->{'tres_alloc_str'}, TRES_NODE);
     }
 }
-# Check for missing number of nodes.
 if (($nnodes == INFINITE64) || ($nnodes == 0)) {
-        $nnodes = 1;
+    $nnodes = 1;
 }
 
 my $pernode = 1;
 if ($job->{'req_mem'} & MEM_PER_CPU) {
-        $pernode = 0;
- }
+    $pernode = 0;
+}
 my $reqmem = Slurmdb::find_tres_count_in_string($job->{'tres_req_str'}, TRES_MEM);
 $reqmem = $reqmem * 1024;
 
 my $walltime = $job->{'elapsed'};
-# Only use hi-order byte for error code.
 my $exit_status = $job->{'exitcode'} >> 8;
 
 my $array_job_id = $job->{'array_job_id'};
 my $array_jobid = "";
 if ($array_job_id != 0) {
-    # Convert array_task_id to a signed long integer.
     my $array_task_id = unpack('l', pack('l', $job->{'array_task_id'}));
     if ($array_task_id == -2) {
         print STDERR "Badly formatted array jobid $array_job_id with task_id = -2\n";
@@ -116,40 +105,37 @@ if ($array_job_id != 0) {
     }
     $array_jobid = "${array_job_id}_${array_task_id}";
 }
+
 my $tot_cpu_sec = 0;
 my $tot_cpu_usec = 0;
 my $mem = 0;
 my $maxmem = 0;
-my $avemem = 0;
+
 for my $step (@{$job->{'steps'}}) {
     $tot_cpu_sec += $step->{'tot_cpu_sec'};
     $tot_cpu_usec += $step->{'tot_cpu_usec'};
 
-    # TRES_MEM in tres_usage_in_tot is the sum of memory peaks of all tasks.
     if (exists $step->{'stats'} && exists $step->{'stats'}{'tres_usage_in_tot'}) {
         my $lmem = Slurmdb::find_tres_count_in_string($step->{'stats'}{'tres_usage_in_tot'}, TRES_MEM);
         if ($lmem == INFINITE64) {
-                $lmem = 0;
+            $lmem = 0;
         } else {
-                $lmem = $lmem / 1024;
+            $lmem = $lmem / 1024;
         }
         if ($mem < $lmem) {
             $mem = $lmem;
-            # Get the task MaxRSS seen in this step and the AveRSS.
             $maxmem = Slurmdb::find_tres_count_in_string($step->{'stats'}{'tres_usage_in_max'}, TRES_MEM);
-            $avemem = Slurmdb::find_tres_count_in_string($step->{'stats'}{'tres_usage_in_ave'}, TRES_MEM);
-            if ($maxmem == INFINITE64) {
-                    $maxmem = 0;
-            }
         }
     }
 }
+
 my $cput = $tot_cpu_sec + int(($tot_cpu_usec / 1000000) + 0.5);
 
 if ($mydebug) {
     print "Slurm data: JobID ArrayJobID User Group State Clustername Ncpus Nnodes Ntasks Reqmem PerNode Cput Walltime Mem ExitStatus\n";
     print "Slurm data: $jobid $array_jobid $user $group $state $clustername $ncpus $nnodes $reqmem $pernode $cput $walltime $mem $exit_status\n\n";
 }
+
 print "Job ID: $jobid\n";
 if (length $array_jobid) {
     print "Array Job ID: $array_jobid\n";
@@ -167,43 +153,78 @@ if ($ncpus == 1) {
     print "Nodes: $nnodes\n";
     printf "Cores per node: %d\n", $ncpus/$nnodes;
 }
+
 if ($state ne "PENDING") {
     my $corewalltime = $walltime * $ncpus;
-    my $cpu_eff;
-    if ($corewalltime != 0) {
-        $cpu_eff = $cput / $corewalltime * 100;
-    } else {
-        $cpu_eff = 0.0;
-    }
+    my $cpu_eff = ($corewalltime != 0) ? $cput / $corewalltime * 100 : 0.0;
+
     printf("CPU Utilized: %s\n", time2str($cput));
     printf("CPU Efficiency: %.2f%% of %s core-walltime\n", $cpu_eff, time2str($corewalltime));
     printf("Job Wall-clock time: %s\n", time2str($walltime));
     printf("Memory Utilized: %s\n", kbytes2str($mem));
-    my $mem_eff;
-    my $allocmem = Slurmdb::find_tres_count_in_string($job->{'tres_alloc_str'}, TRES_MEM);
-    $allocmem = $allocmem * 1024;
-    if ($allocmem != 0) {
-        $mem_eff = $mem / $allocmem * 100;
-    } else {
-        $mem_eff = 0.0;
-    }
+
+    my $allocmem = Slurmdb::find_tres_count_in_string($job->{'tres_alloc_str'}, TRES_MEM) * 1024;
+    my $mem_eff = ($allocmem != 0) ? $mem / $allocmem * 100 : 0.0;
+
     if ($pernode) {
         printf("Memory Efficiency: %.2f%% of %s (%s\/node)\n", $mem_eff, kbytes2str($allocmem), kbytes2str($allocmem / $nnodes));
     } else {
         printf("Memory Efficiency: %.2f%% of %s (%s\/core)\n", $mem_eff, kbytes2str($allocmem), kbytes2str($allocmem / $ncpus));
     }
-    if (($maxmem != 0) && ($maxmem > $avemem)) {
-        printf("The task which had the largest memory consumption differs by %.02f%% from the average task max memory consumption\n", ($maxmem / $avemem) * 100);
-    }
 
     if ($state eq "RUNNING") {
         print "WARNING: Efficiency statistics can only be obtained after the job has ended as seff tool is based on the accounting database data.\n";
     }
+
+    # --- GPU Detection and Stats ---
+    my $gpu_alloc_str = `sacct -n -p -o AllocTres -X -j $jobid_arg 2>/dev/null`;
+    chomp($gpu_alloc_str);
+    my ($gpu_type, $gpu_count) = ("", 0);
+
+    if ($gpu_alloc_str =~ /gres\/gpu:([a-zA-Z0-9._-]+)=([0-9]+)/) {
+        $gpu_type  = $1;
+        $gpu_count = $2;
+    }
+
+    if ($gpu_count > 0) {
+        print "\n──────── GPU Metrics ────────\n";
+        print "Number of GPUs: \U${gpu_type} " . "x${gpu_count}\n";
+
+        print "NOTE: GPU metric availability and accuracy may vary by GPU type and system configuration.\n";
+        print "      Please refer to our documentation for details.\n";
+
+        my $gpu_usage_str = `sacct -n -p -o TresUsageInMax --noconvert -j $jobid_arg 2>/dev/null`;
+        my ($max_gpu_util, $max_gpu_mem) = (undef, undef);
+
+        for my $line (split /\n/, $gpu_usage_str) {
+            my $gpu_util = ($line =~ /gres\/gpuutil=([0-9]+)/) ? $1 : undef;
+            my $gpu_mem  = ($line =~ /gres\/gpumem=([0-9]+)/) ? $1 : undef;
+
+            if (defined $gpu_util) {
+                $max_gpu_util = (!defined($max_gpu_util) or $gpu_util > $max_gpu_util)
+                                ? $gpu_util : $max_gpu_util;
+            }
+            if (defined $max_gpu_mem && defined $gpu_mem) {
+                $max_gpu_mem = ($gpu_mem > $max_gpu_mem) ? $gpu_mem : $max_gpu_mem;
+            } elsif (defined $gpu_mem) {
+                $max_gpu_mem = $gpu_mem;
+            }
+        }
+        print "Max GPU Utilization: " .
+              (defined($max_gpu_util) ? "$max_gpu_util%\n" : "N/A\n");
+
+        if (defined $max_gpu_mem) {
+            my $max_gpu_mem_gb = sprintf("%.2f", $max_gpu_mem / 1e9);
+            print "Max GPU Memory Utilized: ${max_gpu_mem_gb} GB\n";
+        } else {
+            print "Max GPU Memory Utilized: N/A\n";
+        }
+    }
+
 } else {
     print "Efficiency not available for jobs in the PENDING state.\n";
 }
 
-# Convert elapsed time to string.
 sub time2str {
     my $time = shift;
     my $days = int($time / 86400);
@@ -212,23 +233,29 @@ sub time2str {
     $time -= ($hours * 3600);
     my $minutes = int($time / 60);
     my $seconds = $time % 60;
-
     $days = $days < 1 ? '' : "$days-";
-    $time = $days . sprintf("%02s:%02s:%02s", $hours, $minutes, $seconds);
-    return $time;
+    return $days . sprintf("%02s:%02s:%02s", $hours, $minutes, $seconds);
 }
 
-# Convert memory to human-readable string.
 sub kbytes2str {
     my $kbytes = shift;
-    if ($kbytes == 0) {
-        return sprintf("%.2f %sB", 0.0, 'M');
-    }
+    if ($kbytes == 0) { return sprintf("%.2f %sB", 0.0, 'M'); }
     my $mul = 1024;
-
     my $exp = int(log($kbytes) / log($mul));
     my @pre = qw/ K M G T P E /;
     my $pre = $pre[$exp];
-
     return sprintf("%.2f %sB", ($kbytes / pow($mul, $exp)), $pre ? $pre : "");
+}
+
+sub convert_to_seconds {
+    my $timestamp = shift;
+    my ($days, $hours, $minutes, $seconds) = (0,0,0,0);
+    if ($timestamp =~ /(\d+)-(\d+):(\d+):(\d+)/) {
+        ($days, $hours, $minutes, $seconds) = ($1,$2,$3,$4);
+    } elsif ($timestamp =~ /(\d+):(\d+):(\d+)/) {
+        ($hours,$minutes,$seconds) = ($1,$2,$3);
+    } elsif ($timestamp =~ /(\d+):(\d+)/) {
+        ($minutes,$seconds) = ($1,$2);
+    }
+    return $days*86400 + $hours*3600 + $minutes*60 + $seconds;
 }
