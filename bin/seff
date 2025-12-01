@@ -120,7 +120,7 @@ my $tot_cpu_sec = 0;
 my $tot_cpu_usec = 0;
 my $mem = 0;
 my $maxmem = 0;
-
+my $avemem = 0;
 for my $step (@{$job->{'steps'}}) {
     $tot_cpu_sec += $step->{'tot_cpu_sec'};
     $tot_cpu_usec += $step->{'tot_cpu_usec'};
@@ -209,7 +209,7 @@ if ($state ne "PENDING") {
 
     if ($gpu_count > 0) {
         print "\n──────── GPU Metrics ────────\n";
-        print "Number of GPUs: \U${gpu_type} " . "x${gpu_count}\n";
+        print "Number of GPUs: ${gpu_type} x${gpu_count}\n";
 
         print "NOTE: GPU metric availability and accuracy may vary by GPU type and system configuration.\n";
         print "      Please refer to our documentation for details.\n";
