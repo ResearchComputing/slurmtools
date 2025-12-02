@@ -202,8 +202,8 @@ if ($state ne "PENDING") {
     chomp($gpu_alloc_str);
     my ($gpu_type, $gpu_count) = ("", 0);
 
-    if ($gpu_alloc_str =~ /gres\/gpu:([a-zA-Z0-9._-]+)=([0-9]+)/) {
-        $gpu_type  = $1;
+    if ($gpu_alloc_str =~ /gres\/gpu(?::([^=]+))?=([0-9]+)/) {
+        $gpu_type  = $1 // "unknown gpu";
         $gpu_count = $2;
     }
 
