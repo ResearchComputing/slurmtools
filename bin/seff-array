@@ -1,6 +1,7 @@
 #!/bin/bash
 # Gathering efficiency statistics for array jobs
 #
-#last modified 2023-12-01 (Hall)
+#last modified 2025-12-15
+source /curc/sw/uv_env/seff-array-env/bin/activate
 
 python /curc/sw/slurmtools/0.0.1/bin/seff-array.py $@
