@@ -209,6 +209,9 @@ if ($state ne "PENDING") {
     } else {
         printf("Memory Efficiency: %.2f%% of %s (%s\/core)\n", $mem_eff, kbytes2str($allocmem), kbytes2str($allocmem / $ncpus));
     }
+    if (($maxmem != 0) && ($maxmem > $avemem)) {
+        printf("The task which had the largest memory consumption differs by %.02f%% from the average task max memory consumption\n", ($maxmem / $avemem) * 100);
+    }
 
     if ($state eq "RUNNING") {
         print "WARNING: Efficiency statistics can only be obtained after the job has ended as seff tool is based on the accounting database data.\n";
@@ -237,12 +240,11 @@ if ($state ne "PENDING") {
 
         print "\n──────── GPU Metrics ────────\n";
         print "Number of GPUs: ${gpucount}\n";
-        # TODO: If we want, we could get the GPU type using one of the other gres/gpu options that are present in the code
-        # e.g. print $job->{'tres_alloc_str'} . "\n";
-my $gpu_type = get_gpu_type($job->{'tres_alloc_str'}, %gres_map);
-print "GPU Type: $gpu_type\n";
+        
+        my $gpu_type = get_gpu_type($job->{'tres_alloc_str'}, %gres_map);
+        print "GPU Type: $gpu_type\n";
         print "NOTE: GPU metric availability may vary by GPU type.\n";
-        print "      Please refer to our documentation for details.\n";
+        print "      Please refer to our documentation for details: https://curc.readthedocs.io/en/latest/compute/monitoring-resources.html#how-can-i-check-memory-and-gpu-utilization-for-my-jobs\n";
         print "Max GPU Utilization: " . ($max_gpuutil ne 'N/A' ? "${max_gpuutil}%" : $max_gpuutil) . "\n";
         print "Max GPU Memory Utilized: ${max_gpumem}\n";
     }
@@ -272,19 +274,7 @@ sub kbytes2str {
     return sprintf("%.2f %siB", ($kbytes / pow($mul, $exp)), $pre ? $pre : "");
 }
 
-sub convert_to_seconds {
-    my $timestamp = shift;
-    my ($days, $hours, $minutes, $seconds) = (0,0,0,0);
-    if ($timestamp =~ /(\d+)-(\d+):(\d+):(\d+)/) {
-        ($days, $hours, $minutes, $seconds) = ($1,$2,$3,$4);
-    } elsif ($timestamp =~ /(\d+):(\d+):(\d+)/) {
-        ($hours,$minutes,$seconds) = ($1,$2,$3);
-    } elsif ($timestamp =~ /(\d+):(\d+)/) {
-        ($minutes,$seconds) = ($1,$2);
-    }
-    return $days*86400 + $hours*3600 + $minutes*60 + $seconds;
-}
-
+# Creates a map of resources for a cluster by going through its accounting list and picking out the resources that are of type "gres/".
 sub get_gres_map {
     my ($db_conn, $clustername) = @_;
     
@@ -294,7 +284,7 @@ sub get_gres_map {
     
     return () unless $target_cluster;  # Return empty hash if cluster not found
     
-    my %tres_map;
+    my %gres_map;
     for my $tres_usage (@{$target_cluster->{'accounting_list'}}) {
         if (exists $tres_usage->{'tres_rec'}) {
             my $tres = $tres_usage->{'tres_rec'};
@@ -306,39 +296,34 @@ sub get_gres_map {
             my $name = $tres->{'type'} . '/' . $tres->{'name'};
             
             if ($name =~ /^gres\//) {
-                $tres_map{$name} = $id;
+                $gres_map{$name} = $id;
             }
         }
     }
     
-    return %tres_map;
+    return %gres_map;
 }
 
+# Returns the GPU type allocated, or "Unknown" if it can’t be determined.
 sub get_gpu_type {
     my ($tres_alloc_str, %gres_map) = @_;
 
     return "Unknown" unless $tres_alloc_str;
+    return "Unknown" unless %gres_map;
 
     # Reverse mapping: id -> name
-    my %id_to_name = reverse %gres_map;
+    my %gres_id_to_name = reverse %gres_map;
 
     for my $entry (split ',', $tres_alloc_str) {
 
-        my ($key, $count) = split '=', $entry, 2;
-        next unless defined $count && $count > 0;
+        my ($tres_id, $tres_value) = split '=', $entry, 2;
+        next unless defined $tres_value && $tres_value > 0;
 
-        if (exists $id_to_name{$key}) {
-            my $name = $id_to_name{$key};
-
+        if (exists $gres_id_to_name{$tres_id}) {
+            my $name = $gres_id_to_name{$tres_id};
             my ($type, $gpu_name) = split ':', $name, 2;
             return $gpu_name if defined $gpu_name;
         }
-
-        my ($gres, $gpu_name) = split ':', $key, 2;
-        if (defined $gpu_name && $gres eq 'gres/gpu') {
-            return $gpu_name;
-        }
     }
-
     return "Unknown";
 }
