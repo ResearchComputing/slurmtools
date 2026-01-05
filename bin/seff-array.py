@@ -1,5 +1,3 @@
-#!/gpfs/gibbs/pi/support/software/utilities/bin/python
-
 import argparse
 import subprocess
 import sys
