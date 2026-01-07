@@ -244,7 +244,7 @@ if ($state ne "PENDING") {
         my $gpu_type = get_gpu_type($job->{'tres_alloc_str'}, %gres_map);
         print "GPU Type: $gpu_type\n";
         print "NOTE: GPU metric availability may vary by GPU type.\n";
-        print "      Please refer to our documentation for details: https://curc.readthedocs.io/en/latest/compute/monitoring-resources.html#how-can-i-check-memory-and-gpu-utilization-for-my-jobs\n";
+        print "      Please refer to our documentation for details: https://curc.readthedocs.io/en/latest/getting_started/faq.html#why-am-i-getting-unexpected-results-for-my-gpu-memory-or-utilization-metrics\n";
         print "Max GPU Utilization: " . ($max_gpuutil ne 'N/A' ? "${max_gpuutil}%" : $max_gpuutil) . "\n";
         print "Max GPU Memory Utilized: ${max_gpumem}\n";
     }
