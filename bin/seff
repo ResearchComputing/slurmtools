@@ -191,7 +191,7 @@ if ($state ne "PENDING") {
         $cpu_eff = 0.0;
     }
 
-    print "\n──────── CPU Metrics ────────\n";
+    print "\n-------- CPU Metrics --------\n";
     printf("CPU Utilized: %s\n", time2str($cput));
     printf("CPU Efficiency: %.2f%% of %s core-walltime\n", $cpu_eff, time2str($corewalltime));
     printf("Job Wall-clock time: %s\n", time2str($walltime));
@@ -238,13 +238,13 @@ if ($state ne "PENDING") {
             $max_gpumem = kbytes2str($max_gpumem)
         }
 
-        print "\n──────── GPU Metrics ────────\n";
+        print "\n-------- GPU Metrics --------\n";
         print "Number of GPUs: ${gpucount}\n";
         
         my $gpu_type = get_gpu_type($job->{'tres_alloc_str'}, %gres_map);
         print "GPU Type: $gpu_type\n";
         print "NOTE: GPU metric availability may vary by GPU type.\n";
-        print "      Please refer to our documentation for details: https://curc.readthedocs.io/en/latest/getting_started/faq.html#why-am-i-getting-unexpected-results-for-my-gpu-memory-or-utilization-metrics\n";
+        print "      Please refer to our documentation for details: curc.readthedocs.io/en/latest/getting_started/faq.html#why-am-i-getting-unexpected-results-for-my-gpu-memory-or-utilization-metrics\n";
         print "Max GPU Utilization: " . ($max_gpuutil ne 'N/A' ? "${max_gpuutil}%" : $max_gpuutil) . "\n";
         print "Max GPU Memory Utilized: ${max_gpumem}\n";
     }
