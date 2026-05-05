@@ -17,3 +17,9 @@ This repository includes a collection of functions to assess recent usage statis
  `suacct_raw` (raw SU usage statistics for each user of a specified account over N days using 'sreport')
 
  `suuser` (SU usage for a specfied user over N days)
+
+--- 
+
+We aim to make our online resources accessible to everyone. 
+If you encounter any barriers in the materials contained in this repository, please report them through our support request form
+https://colorado.service-now.com/req_portal?id=ucb_sc_rc_form
