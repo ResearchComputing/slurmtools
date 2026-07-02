@@ -334,7 +334,9 @@ sub get_gpu_type {
     # The below logic accounts for the cases such as having both gres/gpu and gres/gpu:a100 in tres_alloc_str
     if (@gres_found > 2) {
         # This logic should never be triggered unless something changes on the system
-        die "get_gpu_type: expected at most 2 GRES matches, found " . scalar(@gres_found);
+        print "\nWARNING: get_gpu_type expected at most 2 GRES matches, found " . scalar(@gres_found) . ", returning Unknown.\n";
+        print "Please contact rc-help\@colorado.edu so the support team can investigate this issue. \n";
+        return "Unknown";
     }
     elsif (@gres_found == 1) {
         return $gres_found[0];
