@@ -159,6 +159,7 @@ for my $step (@{$job->{'steps'}}) {
         }
     }
 }
+
 my $cput = $tot_cpu_sec + int(($tot_cpu_usec / 1000000) + 0.5);
 
 if ($mydebug) {
@@ -218,7 +219,8 @@ if ($state ne "PENDING") {
     }
 
     # --- GPU Detection and Stats ---
-    my $gpucount = exists $gres_map{'gres/gpu'} ? Slurmdb::find_tres_count_in_string($job->{'tres_alloc_str'}, $gres_map{'gres/gpu'}) : 0;
+    my $gpu_type = get_gpu_type($job->{'tres_alloc_str'}, %gres_map);
+    my $gpucount = exists $gres_map{$gpu_type} ? Slurmdb::find_tres_count_in_string($job->{'tres_alloc_str'}, $gres_map{$gpu_type}) : 0;
     if ($gpucount > 0 && $gpucount != INFINITE64) {
 
         # Get maximum values over the job steps
@@ -241,8 +243,9 @@ if ($state ne "PENDING") {
         print "\n-------- GPU Metrics --------\n";
         print "Number of GPUs: ${gpucount}\n";
         
-        my $gpu_type = get_gpu_type($job->{'tres_alloc_str'}, %gres_map);
-        print "GPU Type: $gpu_type\n";
+        # If the value is 'gres/gpu' return Unknown, else strip off 'gres/gpu:' from the name
+        my $gpu_type_name = $gpu_type eq 'gres/gpu' ? "Unknown" : $gpu_type =~ s{^gres/gpu:}{}r;   
+        print "GPU Type: $gpu_type_name\n";
         print "NOTE: GPU metric availability may vary by GPU type.\n";
         print "      Please refer to our documentation for details: curc.readthedocs.io/en/latest/getting_started/faq.html#why-am-i-getting-unexpected-results-for-my-gpu-memory-or-utilization-metrics\n";
         print "Max GPU Utilization: " . ($max_gpuutil ne 'N/A' ? "${max_gpuutil}%" : $max_gpuutil) . "\n";
@@ -314,16 +317,34 @@ sub get_gpu_type {
     # Reverse mapping: id -> name
     my %gres_id_to_name = reverse %gres_map;
 
+    # All the GRES found in tres_alloc_str
+    my @gres_found;
+
     for my $entry (split ',', $tres_alloc_str) {
 
         my ($tres_id, $tres_value) = split '=', $entry, 2;
         next unless defined $tres_value && $tres_value > 0;
 
         if (exists $gres_id_to_name{$tres_id}) {
-            my $name = $gres_id_to_name{$tres_id};
-            my ($type, $gpu_name) = split ':', $name, 2;
-            return $gpu_name if defined $gpu_name;
+            push @gres_found, $gres_id_to_name{$tres_id};
         }
     }
-    return "Unknown";
+    return "Unknown" unless @gres_found;
+
+    # The below logic accounts for the cases such as having both gres/gpu and gres/gpu:a100 in tres_alloc_str
+    if (@gres_found > 2) {
+        # This logic should never be triggered unless something changes on the system
+        print "\nWARNING: get_gpu_type expected at most 2 GRES matches, found " . scalar(@gres_found) . ", returning Unknown.\n";
+        print "Please contact rc-help\@colorado.edu so the support team can investigate this issue. \n";
+        return "Unknown";
+    }
+    elsif (@gres_found == 1) {
+        return $gres_found[0];
+    }
+    else {
+        # Drop the generic 'gres/gpu' entry, this should leave us with 1 element
+        @gres_found = grep { $_ ne 'gres/gpu' } @gres_found;
+        return $gres_found[0];
+    }
+
 }
