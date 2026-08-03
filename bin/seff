@@ -160,6 +160,19 @@ for my $step (@{$job->{'steps'}}) {
     }
 }
 
+# See if we have any non-infinite values found
+my $have_real_gpumem  = grep { $_ != INFINITE64 } @gpumem_values;
+my $have_real_gpuutil = grep { $_ != INFINITE64 } @gpuutil_values;
+
+# If non-infinite values are found, then replace any infinite values with zero
+# This logic is required for when you have CPU-only job steps in a GPU job
+if ($have_real_gpumem) {
+    @gpumem_values = map { $_ == INFINITE64 ? 0 : $_ } @gpumem_values;
+}
+if ($have_real_gpuutil) {
+    @gpuutil_values = map { $_ == INFINITE64 ? 0 : $_ } @gpuutil_values;
+}
+
 my $cput = $tot_cpu_sec + int(($tot_cpu_usec / 1000000) + 0.5);
 
 if ($mydebug) {
