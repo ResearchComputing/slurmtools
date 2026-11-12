@@ -1,6 +1,6 @@
 ### Slurmtools
 
-This repository includes a collection of functions to assess recent usage statistics on Slurm-based resources. It contains a mixture of existing open source tools developed elsewhere, and functions developed by CU Boulder Research Computing.  Available commands include:
+This repository includes a collection of functions to assess recent usage statistics on Slurm-based resources and launch Slurm jobs. It contains a mixture of existing open source tools developed elsewhere, and functions developed by CU Boulder Research Computing.  Available commands include:
 
  `jobstats` (job statistics for all jobs run by a specified user over N days)
 
@@ -18,6 +18,7 @@ This repository includes a collection of functions to assess recent usage statis
 
  `suuser` (SU usage for a specfied user over N days)
 
+ `remote-vscode` (Command to launch a Slurm job for remote VS Code sessions)
 --- 
 
 We aim to make our online resources accessible to everyone. 

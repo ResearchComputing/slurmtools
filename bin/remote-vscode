@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Script to launch a salloc job for remote VS Code sessions
+
+
+# Print usage
+# --------------------------------------------------------------------
+print_usage () {
+    echo "remote-vscode: CURC utility to access a single compute node for a remote VS Code session"
+    echo "usage:"
+    echo "       -t | --time=<time-limit>            : set the job's runtime (default 60 min)"
+    echo "       -n | --ntasks=<number-of-cores>     : set the number of cores required for the session (default 1)"
+    echo "       -p | --partition=<partition name>   : set the partition to use (default ahub)"
+    echo "       -q | --qos=<QoS name>               : set the QoS to use (default interactive)"
+    echo "       --gres=<GRES>                       : set the GRES to use (by default, no GRES are applied)"
+    echo "       -A | --account=<Account name>       : set the account to use (will use your default account, if not specified)"
+    echo "       -h | --help                         : print this message"
+
+}
+
+debug_msg () {
+    if [ ! -z $debug ]; then
+        echo "$1"
+    fi
+}
+
+
+main () {
+
+    # Set Defaults
+    t="--time=01:00:00"
+    n="--ntasks=1"
+    p="--partition=ahub"
+    q="--qos=interactive"
+    gg=""
+    A=""
+
+    # Parse command line arguements
+    while [ "$#" -gt 0 ]
+    do
+        case "${1}" in
+            (-t)             t="--time=${2}"; shift ;;
+            (--time=?*)      t="${1}" ;;
+            (-n)             n="--ntasks=${2}"; shift ;;
+            (--ntasks=?*)    n="${1}" ;;
+            (-p)             p="--partition=${2}"; shift ;;
+            (--partition=?*) p="${1}" ;;
+            (-q)             q="--qos=${2}"; shift ;;
+            (--qos=?*)       q="${1}" ;;
+            (--gres=?*)      gg="${1}"; shift ;;
+            (-A)             A="--account=${2}"; shift ;;
+            (--account=?*)   A="${1}" ;;
+            (-N)             echo "Error: Usage of remote-vscode is limited to a single node"; exit 1 ;;
+            (--nodes=?*)     echo "Error: Usage of remote-vscode is limited to a single node"; exit 1 ;;
+            (-v | --verbose) debug=true ;;
+            (--test-only)    test=true ;;
+            (-h | --help)    print_usage; exit 0 ;;
+            (*)              echo "Error: unrecognized option ${1}"; print_usage; exit 1 ;;
+        esac
+        shift
+    done
+
+    # Submit Job
+    echo "Submitting job for remote VS Code session ..."
+    if [[ -z $test && ($p == "--partition=ahub" || $p == "--partition=acompile") ]]; then 
+        salloc --no-shell --nodes=1 $p $q $A $n $c $t $gg --job-name=remote-vscode-session --oversubscribe
+    elif [ -z $test ]; then
+        salloc --no-shell --nodes=1 $p $q $A $n $c $t $gg --job-name=remote-vscode-session
+    fi
+}
+
+main $@
